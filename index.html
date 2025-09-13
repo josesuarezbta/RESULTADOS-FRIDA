@@ -5,393 +5,991 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Frida - Análisis Colaborativo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
     <style>
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
         }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            font-weight: 800;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+        
+        .collaboration-info {
+            background: #e6fffa;
+            border: 2px solid #38b2ac;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+        }
+        
+        .metric-value {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        
+        .metric-label {
+            color: #718096;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .critical { color: #e53e3e; }
+        .warning { color: #dd6b20; }
+        .good { color: #38a169; }
+        .info { color: #3182ce; }
+        
+        .section {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px 30px;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .section-content {
+            padding: 30px;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
+            min-height: 400px;
+        }
+        
+        .chart-title {
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #2d3748;
+        }
+        
+        .chart-canvas {
+            position: relative;
+            height: 300px !important;
+        }
+        
+        .comparison-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .risk-section {
+            background: linear-gradient(135deg, #fed7d7 0%, #fbb6ce 100%);
+            border-left: 6px solid #e53e3e;
+            padding: 25px;
+            border-radius: 15px;
+        }
+        
+        .protection-section {
+            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+            border-left: 6px solid #38a169;
+            padding: 25px;
+            border-radius: 15px;
+        }
+        
+        .factor-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .factor-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .factor-name {
+            font-weight: 600;
+            flex: 1;
+        }
+        
+        .factor-score {
+            font-size: 1.5rem;
+            font-weight: 800;
+            padding: 8px 15px;
+            border-radius: 20px;
+            color: white;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .score-critical { background: #e53e3e; }
+        .score-high { background: #dd6b20; }
+        .score-moderate { background: #f59e0b; }
+        .score-good { background: #38a169; }
+        
+        .alerts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .alert {
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 6px solid;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .alert-critical {
+            background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+            border-color: #e53e3e;
+        }
+        
+        .alert-warning {
+            background: linear-gradient(135deg, #feebc8 0%, #fbd38d 100%);
+            border-color: #dd6b20;
+        }
+        
+        .alert-success {
+            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+            border-color: #38a169;
+        }
+        
+        .alert h4 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .demographics-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .demo-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .demo-card h4 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        
+        .demo-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .demo-item:last-child {
+            border-bottom: none;
+        }
+        
+        .collaboration-section {
+            background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+            border: 3px solid #38b2ac;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .collab-form {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(66, 153, 225, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+        }
+        
+        .discussion {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .discussion-header {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .discussion-author {
+            font-weight: 700;
+            color: #2d3748;
+            font-size: 1.1rem;
+        }
+        
+        .discussion-time {
+            color: #718096;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .discussion-question {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .response {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0 15px 30px;
+            border-left: 4px solid #4299e1;
+        }
+        
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .response-author {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .response-likes {
+            background: #ebf8ff;
+            color: #3182ce;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .response-likes:hover {
+            background: #3182ce;
+            color: white;
+        }
+        
+        .response-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .response-form input {
+            flex: 1;
+        }
+        
+        .badge {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .badge-critical { background: #fed7d7; color: #c53030; }
+        .badge-warning { background: #feebc8; color: #c05621; }
+        .badge-good { background: #c6f6d5; color: #2f855a; }
+        
+        .plan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .plan-card {
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 6px solid;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .plan-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .plan-immediate {
+            background: linear-gradient(135deg, #fed7d7 0%, #fbb6ce 100%);
+            border-color: #e53e3e;
+        }
+        
+        .plan-short {
+            background: linear-gradient(135deg, #feebc8 0%, #f6e05e 100%);
+            border-color: #dd6b20;
+        }
+        
+        .plan-maintain {
+            background: linear-gradient(135deg, #c6f6d5 0%, #68d391 100%);
+            border-color: #38a169;
+        }
+        
+        .timeline {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .timeline-item:hover {
+            background: #ebf8ff;
+            transform: translateX(5px);
+        }
+        
+        .timeline-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 20px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .timeline-content {
+            flex: 1;
+        }
+        
+        .timeline-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        
+        .timeline-desc {
+            color: #718096;
+            line-height: 1.5;
+        }
+        
         .notification {
-            animation: slideIn 0.3s ease-out;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        @keyframes slideIn {
-            from { transform: translateX(100%); }
-            to { transform: translateX(0); }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        
+        .notification.error {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .metric-value {
+                font-size: 2.5rem;
+            }
+            
+            .response-form {
+                flex-direction: column;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .comparison-section {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .footer {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin-top: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .url-share {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-family: monospace;
+            word-break: break-all;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Notification Container -->
-    <div id="notifications" class="fixed top-4 right-4 z-50"></div>
-
-    <div class="container mx-auto px-4 py-6 max-w-7xl">
+<body>
+    <div class="container">
         <!-- Header -->
-        <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900 mb-2">
-                        Dashboard Frida - Análisis Colaborativo
-                    </h1>
-                    <p class="text-gray-600">
-                        Factores de riesgo y protección en 54 estudiantes de ESO
-                    </p>
-                </div>
-                <div class="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
-                    <div class="flex items-center space-x-2 text-gray-600">
-                        <i data-lucide="users" class="w-5 h-5"></i>
-                        <span class="text-sm">Colaboradores: <span id="activeUsers">0</span></span>
+        <div class="header">
+            <h1>📊 Dashboard Frida</h1>
+            <p>Análisis Colaborativo de Factores de Riesgo y Protección</p>
+            <p><strong>54 estudiantes de ESO evaluados</strong></p>
+            
+            <div class="collaboration-info">
+                <strong>🚀 Dashboard con gráficos mejorados y sistema colaborativo</strong><br>
+                <span id="activeUsers">5</span> colaboradores activos • 
+                <span id="discussionCount">0</span> discusiones abiertas
+            </div>
+        </div>
+
+        <!-- Métricas Clave -->
+        <div class="section">
+            <div class="section-header">📈 Métricas Clave</div>
+            <div class="section-content">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value info">54</div>
+                        <div class="metric-label">Total Estudiantes</div>
                     </div>
-                    <div class="flex items-center space-x-2 text-gray-600">
-                        <i data-lucide="message-circle" class="w-5 h-5"></i>
-                        <span class="text-sm">Discusiones: <span id="totalDiscussions">0</span></span>
+                    <div class="metric-card">
+                        <div class="metric-value warning">9.57</div>
+                        <div class="metric-label">IVG Promedio</div>
                     </div>
-                    <button onclick="syncData()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
-                        <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-2"></i>
-                        Sincronizar
-                    </button>
+                    <div class="metric-card">
+                        <div class="metric-value good">3.23</div>
+                        <div class="metric-label">Media Anterior</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value critical">7.4%</div>
+                        <div class="metric-label">% Repetidores</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Navigation Tabs -->
-        <div class="bg-white rounded-lg shadow-sm mb-6 fade-in">
-            <div class="border-b border-gray-200">
-                <nav class="flex space-x-8 px-6 overflow-x-auto">
-                    <button onclick="setActiveTab('overview')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap" data-tab="overview">
-                        Resumen General
-                    </button>
-                    <button onclick="setActiveTab('factors')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap" data-tab="factors">
-                        Factores R&P
-                    </button>
-                    <button onclick="setActiveTab('collaboration')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap relative" data-tab="collaboration">
-                        Discusión Colaborativa
-                        <span id="priorityBadge" class="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-1 hidden">0</span>
-                    </button>
-                    <button onclick="setActiveTab('action-plan')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap" data-tab="action-plan">
-                        Plan de Acción
-                    </button>
-                </nav>
-            </div>
-        </div>
-
-        <!-- Content Sections -->
-        <div id="overview" class="tab-content">
-            <!-- Overview Content -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                <!-- Key Metrics -->
-                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Métricas Clave</h3>
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Total Estudiantes</span>
-                            <span class="text-2xl font-bold text-blue-600">54</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">IVG Promedio</span>
-                            <span class="text-2xl font-bold text-orange-600">9.57</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Media Anterior</span>
-                            <span class="text-2xl font-bold text-green-600">3.23</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">% Repetidores</span>
-                            <span class="text-2xl font-bold text-red-600">7.4%</span>
+        <!-- Alertas Críticas -->
+        <div class="section">
+            <div class="section-header">🚨 Alertas Críticas</div>
+            <div class="section-content">
+                <div class="alerts-grid">
+                    <div class="alert alert-critical">
+                        <h4>🚨 CRÍTICO: F5 Educación Familiar</h4>
+                        <p><strong>Puntuación: 6.56 - LA MÁS BAJA</strong></p>
+                        <p>Requiere intervención inmediata. Déficit severo en programas de formación parental sobre prevención de drogas.</p>
+                        <div style="margin-top: 15px;">
+                            <button class="btn btn-primary" onclick="focusOnQuestion('F5')">💬 Discutir Soluciones Urgentes</button>
                         </div>
                     </div>
-                </div>
-
-                <!-- Risk Profile Chart -->
-                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Perfil de Riesgo</h3>
-                    <div class="relative">
-                        <canvas id="riskProfileChart" width="300" height="200"></canvas>
-                    </div>
-                </div>
-
-                <!-- Quick Discussion Access -->
-                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Discusiones Recientes</h3>
-                    <div id="recentDiscussions" class="space-y-3">
-                        <!-- Dynamic content -->
-                    </div>
-                    <button onclick="setActiveTab('collaboration')" class="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors">
-                        Ver todas las discusiones
-                    </button>
-                </div>
-
-                <!-- Factor Analysis Chart -->
-                <div class="xl:col-span-3 bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Análisis de Factores</h3>
-                        <button onclick="openNewQuestionModal()" class="mt-2 md:mt-0 flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                            <span>Nueva Pregunta</span>
-                        </button>
-                    </div>
-                    <canvas id="factorsChart" width="800" height="400"></canvas>
-                </div>
-
-                <!-- Critical Alerts -->
-                <div class="xl:col-span-3 bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Alertas Críticas</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                            <div class="flex items-center mb-2">
-                                <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                                <h4 class="font-semibold text-red-800">CRÍTICO</h4>
-                            </div>
-                            <p class="text-sm text-red-700">
-                                <strong>F5 Educación Familiar (6.56):</strong> Puntuación más baja detectada. 
-                                Requiere intervención inmediata.
-                            </p>
-                            <button onclick="focusOnFactor('F5')" class="mt-2 text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
-                                Discutir soluciones
-                            </button>
+                    <div class="alert alert-warning">
+                        <h4⚠️ ALTO RIESGO: F1 Reacción Familiar</h4>
+                        <p><strong>Puntuación: 9.26</strong></p>
+                        <p>Necesario mejorar el manejo familiar de situaciones de riesgo. Programas de entrenamiento parental requeridos.</p>
+                        <div style="margin-top: 15px;">
+                            <button class="btn btn-primary" onclick="focusOnQuestion('F1')">💡 Ver Estrategias</button>
                         </div>
-                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                            <div class="flex items-center mb-2">
-                                <div class="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-                                <h4 class="font-semibold text-orange-800">ALTO RIESGO</h4>
-                            </div>
-                            <p class="text-sm text-orange-700">
-                                <strong>F1 Reacción Familiar (9.26):</strong> Necesario mejorar 
-                                manejo familiar de situaciones de riesgo.
-                            </p>
-                            <button onclick="focusOnFactor('F1')" class="mt-2 text-xs bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700">
-                                Ver estrategias
-                            </button>
-                        </div>
-                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <div class="flex items-center mb-2">
-                                <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                                <h4 class="font-semibold text-green-800">FORTALEZAS</h4>
-                            </div>
-                            <p class="text-sm text-green-700">
-                                <strong>F6 y F7 (10.98):</strong> Excelentes puntuaciones en 
-                                actividades protectoras y estilo educativo.
-                            </p>
-                            <button onclick="focusOnFactor('F6')" class="mt-2 text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
-                                Potenciar
-                            </button>
+                    </div>
+                    <div class="alert alert-success">
+                        <h4>✅ FORTALEZAS: F6 y F7</h4>
+                        <p><strong>Puntuaciones: 10.98 - EXCELENTES</strong></p>
+                        <p>Actividades protectoras y estilo educativo funcionan muy bien. Mantener y potenciar estos aspectos.</p>
+                        <div style="margin-top: 15px;">
+                            <button class="btn btn-success" onclick="focusOnQuestion('F6')">🚀 Potenciar Fortalezas</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="factors" class="tab-content hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Risk Factors Radar -->
-                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Factores de Riesgo</h3>
-                    <canvas id="riskRadarChart" width="400" height="300"></canvas>
-                </div>
-
-                <!-- Protection Factors Radar -->
-                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Factores de Protección</h3>
-                    <canvas id="protectionRadarChart" width="400" height="300"></canvas>
-                </div>
-
-                <!-- Factor Details Table -->
-                <div class="lg:col-span-2 bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Análisis Detallado por Factor</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Factor</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Puntuación</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rango</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evaluación</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="factorsTableBody" class="bg-white divide-y divide-gray-200">
-                                <!-- Dynamic content -->
-                            </tbody>
-                        </table>
+        <!-- Análisis Visual de Factores -->
+        <div class="section">
+            <div class="section-header">📊 Análisis Visual de Factores</div>
+            <div class="section-content">
+                <div class="charts-grid">
+                    <!-- Gráfico de Barras General -->
+                    <div class="chart-container">
+                        <div class="chart-title">Puntuaciones por Factor</div>
+                        <canvas id="factorsBarChart" class="chart-canvas"></canvas>
+                    </div>
+                    
+                    <!-- Gráfico de Distribución por Tipo -->
+                    <div class="chart-container">
+                        <div class="chart-title">Comparativa Riesgo vs Protección</div>
+                        <canvas id="riskProtectionChart" class="chart-canvas"></canvas>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div id="collaboration" class="tab-content hidden">
-            <!-- New Question Button -->
-            <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
-                <button onclick="openNewQuestionModal()" class="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors">
-                    <i data-lucide="plus" class="w-4 h-4"></i>
-                    <span>Nueva Pregunta o Discusión</span>
-                </button>
-            </div>
-
-            <!-- Discussions Container -->
-            <div id="discussionsContainer" class="space-y-6">
-                <!-- Dynamic content -->
-            </div>
-        </div>
-
-        <div id="action-plan" class="tab-content hidden">
-            <!-- Action Plan Content -->
-            <div class="space-y-6">
-                <!-- Priority Actions -->
-                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-lg font-semibold text-gray-900">Plan de Acción Colaborativo</h3>
-                        <div class="flex items-center space-x-2 text-sm text-gray-600">
-                            <i data-lucide="check-circle" class="w-4 h-4"></i>
-                            <span>Basado en discusiones del equipo</span>
+                
+                <!-- Comparación Visual Riesgo vs Protección -->
+                <div class="comparison-section">
+                    <div class="risk-section">
+                        <h3 style="color: #c53030; margin-bottom: 20px; text-align: center;">🚨 FACTORES DE RIESGO</h3>
+                        <ul class="factor-list">
+                            <li class="factor-item">
+                                <span class="factor-name">F1 Reacción Familiar</span>
+                                <span class="factor-score score-high">9.26</span>
+                            </li>
+                            <li class="factor-item">
+                                <span class="factor-name">F2 Grupo Amigos</span>
+                                <span class="factor-score score-moderate">6.87</span>
+                            </li>
+                            <li class="factor-item">
+                                <span class="factor-name">F3 Acceso Drogas</span>
+                                <span class="factor-score score-high">8.00</span>
+                            </li>
+                            <li class="factor-item">
+                                <span class="factor-name">F4 Riesgo Familiar</span>
+                                <span class="factor-score score-moderate">6.69</span>
+                            </li>
+                        </ul>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <strong style="color: #c53030;">PROMEDIO RIESGO: 7.71</strong>
                         </div>
                     </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div class="border-l-4 border-red-500 pl-4">
-                            <h4 class="font-semibold text-red-800 mb-2">Acción Inmediata</h4>
-                            <div class="space-y-2">
-                                <div class="bg-red-50 p-3 rounded">
-                                    <p class="text-sm font-medium">Programa F5 - Educación Familiar</p>
-                                    <p class="text-xs text-red-600 mt-1">Crítico: Puntuación más baja (6.56)</p>
-                                    <div class="flex flex-wrap items-center mt-2 space-x-2 space-y-1">
-                                        <span class="text-xs bg-red-100 px-2 py-1 rounded">Resp: Orientación</span>
-                                        <span class="text-xs bg-red-100 px-2 py-1 rounded">Plazo: 2 sem</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="border-l-4 border-orange-500 pl-4">
-                            <h4 class="font-semibold text-orange-800 mb-2">Corto Plazo</h4>
-                            <div class="space-y-2">
-                                <div class="bg-orange-50 p-3 rounded">
-                                    <p class="text-sm font-medium">Apoyo Familias Monoparentales</p>
-                                    <p class="text-xs text-orange-600 mt-1">42.6% de la muestra</p>
-                                    <div class="flex flex-wrap items-center mt-2 space-x-2 space-y-1">
-                                        <span class="text-xs bg-orange-100 px-2 py-1 rounded">Resp: Equipos</span>
-                                        <span class="text-xs bg-orange-100 px-2 py-1 rounded">Plazo: 1 mes</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="border-l-4 border-green-500 pl-4">
-                            <h4 class="font-semibold text-green-800 mb-2">Potenciar Fortalezas</h4>
-                            <div class="space-y-2">
-                                <div class="bg-green-50 p-3 rounded">
-                                    <p class="text-sm font-medium">Ampliar Actividades F6/F7</p>
-                                    <p class="text-xs text-green-600 mt-1">Puntuaciones altas (10.98)</p>
-                                    <div class="flex flex-wrap items-center mt-2 space-x-2 space-y-1">
-                                        <span class="text-xs bg-green-100 px-2 py-1 rounded">Resp: Ed. Física</span>
-                                        <span class="text-xs bg-green-100 px-2 py-1 rounded">Plazo: Continuo</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Timeline -->
-                    <div class="border-t pt-6">
-                        <h4 class="font-semibold text-gray-900 mb-4">Cronograma de Implementación</h4>
-                        <div id="timelineContainer" class="space-y-4">
-                            <!-- Dynamic timeline content -->
+                    
+                    <div class="protection-section">
+                        <h3 style="color: #2f855a; margin-bottom: 20px; text-align: center;">✅ FACTORES DE PROTECCIÓN</h3>
+                        <ul class="factor-list">
+                            <li class="factor-item">
+                                <span class="factor-name">F5 Educación Familiar</span>
+                                <span class="factor-score score-critical">6.56</span>
+                            </li>
+                            <li class="factor-item">
+                                <span class="factor-name">F6 Actividades Protectoras</span>
+                                <span class="factor-score score-good">10.98</span>
+                            </li>
+                            <li class="factor-item">
+                                <span class="factor-name">F7 Estilo Educativo</span>
+                                <span class="factor-score score-good">10.98</span>
+                            </li>
+                        </ul>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <strong style="color: #2f855a;">PROMEDIO PROTECCIÓN: 9.51</strong>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal for New Questions -->
-    <div id="questionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Nueva Pregunta o Discusión</h3>
-                    <button onclick="closeNewQuestionModal()" class="text-gray-400 hover:text-gray-600">
-                        <i data-lucide="x" class="w-6 h-6"></i>
-                    </button>
+        <!-- Perfil de Riesgo -->
+        <div class="section">
+            <div class="section-header">📊 Perfil de Riesgo de la Muestra</div>
+            <div class="section-content">
+                <div class="chart-container" style="max-width: 600px; margin: 0 auto;">
+                    <div class="chart-title">Distribución por Nivel de Vulnerabilidad</div>
+                    <canvas id="riskProfileChart" class="chart-canvas"></canvas>
                 </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tu nombre/cargo</label>
-                        <input type="text" id="authorName" placeholder="Ej: Dr. García - Coordinador" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+        </div>
+
+        <!-- Datos Demográficos -->
+        <div class="section">
+            <div class="section-header">👥 Datos Demográficos</div>
+            <div class="section-content">
+                <div class="demographics-section">
+                    <div class="demo-card">
+                        <h4>Distribución por Sexo</h4>
+                        <div class="demo-item">
+                            <span>Masculino:</span>
+                            <strong>33 estudiantes (61.1%)</strong>
+                        </div>
+                        <div class="demo-item">
+                            <span>Femenino:</span>
+                            <strong>20 estudiantes (37.0%)</strong>
+                        </div>
+                        <div class="demo-item">
+                            <span>No especificado:</span>
+                            <strong>1 estudiante (1.9%)</strong>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Pregunta o tema de discusión</label>
-                        <textarea id="questionText" placeholder="¿Qué aspecto del análisis Frida quieres discutir con el equipo?" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="4"></textarea>
+                    
+                    <div class="demo-card">
+                        <h4>Situación de Convivencia</h4>
+                        <div class="demo-item">
+                            <span>Ambos padres:</span>
+                            <strong>24 estudiantes (44.4%)</strong>
+                        </div>
+                        <div class="demo-item">
+                            <span>Solo madre:</span>
+                            <strong>19 estudiantes (35.2%)</strong>
+                        </div>
+                        <div class="demo-item">
+                            <span>Solo padre:</span>
+                            <strong>4 estudiantes (7.4%)</strong>
+                        </div>
+                        <div class="demo-item">
+                            <span>Otros familiares:</span>
+                            <strong>4 estudiantes (7.4%)</strong>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Prioridad</label>
-                        <select id="questionPriority" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="baja">Baja - Información general</option>
-                            <option value="media" selected>Media - Decisión importante</option>
-                            <option value="alta">Alta - Requiere acción inmediata</option>
+                </div>
+
+                <div class="alert alert-warning" style="margin-top: 30px;">
+                    <h4>📊 Observación Crítica</h4>
+                    <p><strong>42.6% de los estudiantes vive en familias monoparentales</strong>, lo que requiere estrategias de intervención específicas y mayor apoyo social coordinado.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sistema de Colaboración -->
+        <div class="collaboration-section">
+            <h2>💬 Sistema de Colaboración Activo</h2>
+            <p style="font-size: 1.2rem; margin: 15px 0;">
+                <strong>¡Participa en tiempo real!</strong> Añade preguntas, comenta y colabora con tu equipo.
+            </p>
+
+            <div class="collab-form">
+                <h3 style="margin-bottom: 20px; color: #2d3748;">🗨️ Nueva Pregunta o Discusión</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="authorInput">👤 Tu nombre/cargo:</label>
+                        <input type="text" id="authorInput" placeholder="Ej: Dr. García - Coordinador de Orientación">
+                    </div>
+                    <div class="form-group">
+                        <label for="priorityInput">📋 Prioridad:</label>
+                        <select id="priorityInput">
+                            <option value="baja">🟢 Baja - Información general</option>
+                            <option value="media" selected>🟡 Media - Decisión importante</option>
+                            <option value="alta">🔴 Alta - Requiere acción inmediata</option>
                         </select>
                     </div>
-                    <div class="flex justify-end space-x-3">
-                        <button onclick="closeNewQuestionModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">
-                            Cancelar
-                        </button>
-                        <button onclick="addNewQuestion()" class="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
-                            <i data-lucide="send" class="w-4 h-4"></i>
-                            <span>Publicar Pregunta</span>
-                        </button>
+                </div>
+                <div class="form-group">
+                    <label for="questionInput">❓ Pregunta o tema de discusión:</label>
+                    <textarea id="questionInput" placeholder="¿Qué aspecto del análisis Frida quieres discutir con el equipo? Por ejemplo: ¿Cómo priorizamos las intervenciones? ¿Qué recursos necesitamos?"></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="addQuestion()">📝 Publicar Pregunta</button>
+            </div>
+        </div>
+
+        <!-- Discusiones -->
+        <div class="section">
+            <div class="section-header">🗨️ Discusiones Activas</div>
+            <div class="section-content">
+                <div id="discussionsContainer">
+                    <!-- Se generará dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Plan de Acción -->
+        <div class="section">
+            <div class="section-header">📋 Plan de Acción Colaborativo</div>
+            <div class="section-content">
+                <div class="plan-grid">
+                    <div class="plan-card plan-immediate">
+                        <h4 style="color: #c53030; margin-bottom: 20px;">🚨 Acción Inmediata (0-2 semanas)</h4>
+                        <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                            <h5 style="margin-bottom: 10px;">Programa F5 - Educación Familiar</h5>
+                            <p style="margin-bottom: 15px; color: #7f1d1d;"><strong>Crítico:</strong> Puntuación más baja (6.56)</p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                <span class="badge badge-critical">Responsable: Orientación</span>
+                                <span class="badge badge-critical">Plazo: 2 semanas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="plan-card plan-short">
+                        <h4 style="color: #c05621; margin-bottom: 20px;">⏰ Corto Plazo (1-3 meses)</h4>
+                        <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                            <h5 style="margin-bottom: 10px;">Apoyo Familias Monoparentales</h5>
+                            <p style="margin-bottom: 15px; color: #92400e;"><strong>Importante:</strong> 42.6% de la muestra</p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                <span class="badge badge-warning">Responsable: Equipos</span>
+                                <span class="badge badge-warning">Plazo: 1 mes</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="plan-card plan-maintain">
+                        <h4 style="color: #2f855a; margin-bottom: 20px;">🚀 Potenciar Fortalezas (Continuo)</h4>
+                        <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                            <h5 style="margin-bottom: 10px;">Ampliar Actividades F6/F7</h5>
+                            <p style="margin-bottom: 15px; color: #166534;"><strong>Fortaleza:</strong> Puntuaciones altas (10.98)</p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                <span class="badge badge-good">Responsable: Ed. Física</span>
+                                <span class="badge badge-good">Plazo: Continuo</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Cronograma -->
+        <div class="section">
+            <div class="section-header">📅 Cronograma de Implementación</div>
+            <div class="section-content">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-dot" style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">Semana 1-2: Preparación F5</div>
+                            <div class="timeline-desc">Diseño urgente del programa de educación familiar sobre drogas. <strong>Responsables:</strong> Dr. García, Prof. Martínez. <strong>Recursos necesarios:</strong> Material didáctico, espacio formativo.</div>
+                        </div>
+                        <button class="btn btn-primary" onclick="focusOnQuestion('cronograma-prep')">💬 Comentar</button>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot" style="background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">Mes 1: Lanzamiento</div>
+                            <div class="timeline-desc">Inicio talleres parentales y programas de apoyo para familias monoparentales. <strong>Responsables:</strong> Equipo completo. <strong>Seguimiento:</strong> Semanal.</div>
+                        </div>
+                        <button class="btn btn-primary" onclick="focusOnQuestion('cronograma-launch')">💬 Comentar</button>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot" style="background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">Mes 2-3: Evaluación</div>
+                            <div class="timeline-desc">Primera evaluación de efectividad y ajustes necesarios. <strong>Responsables:</strong> Orientación y Equipos. <strong>Indicadores:</strong> Participación, feedback familias.</div>
+                        </div>
+                        <button class="btn btn-primary" onclick="focusOnQuestion('cronograma-eval')">💬 Comentar</button>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">Mes 4+: Consolidación</div>
+                            <div class="timeline-desc">Mantenimiento y mejora continua de todos los programas. <strong>Responsables:</strong> Todos. <strong>Meta:</strong> Mejora sostenida en F5 y mantenimiento de fortalezas.</div>
+                        </div>
+                        <button class="btn btn-success" onclick="focusOnQuestion('cronograma-consol')">💬 Comentar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <h3>🔗 Compartir Dashboard</h3>
+            <p>Para colaborar con tu equipo, comparte esta URL:</p>
+            <div class="url-share" id="currentUrl">
+                <!-- Se generará automáticamente -->
+            </div>
+            <p style="margin-top: 15px; color: #718096;">
+                <strong>📊 Dashboard Frida v3.0</strong> | 
+                Gráficos mejorados y sistema colaborativo | 
+                Datos actualizados: <span id="currentDate"></span>
+            </p>
         </div>
     </div>
 
     <script>
-        // Configuration for Google Sheets integration
-        const CONFIG = {
-            SHEET_ID: '1BvGQyGNRZfvwA8B6QYQIhqoEqTVCZ3RVz_YeAp9ZcOo', // Replace with your Google Sheet ID
-            API_KEY: 'YOUR_GOOGLE_SHEETS_API_KEY', // Replace with your API key
-            RANGE: 'Discussions!A:F'
-        };
-
-        // Data for the dashboard
+        // Datos del análisis Frida
         const fridaData = {
             factors: [
-                { name: 'F1 Reacción Familia', value: 9.26, type: 'riesgo', range: '1-19', stdDev: 4.91 },
-                { name: 'F2 Grupo Amigos', value: 6.87, type: 'riesgo', range: '1-16', stdDev: 4.02 },
-                { name: 'F3 Acceso Drogas', value: 8.00, type: 'riesgo', range: '1-17', stdDev: 4.14 },
-                { name: 'F4 Riesgo Familiar', value: 6.69, type: 'riesgo', range: '1-23', stdDev: 4.58 },
-                { name: 'F5 Educación Familiar', value: 6.56, type: 'protección', range: '1-16', stdDev: 4.54 },
-                { name: 'F6 Actividades Protectoras', value: 10.98, type: 'protección', range: '1-20', stdDev: 4.17 },
-                { name: 'F7 Estilo Educativo', value: 10.98, type: 'protección', range: '2-17', stdDev: 3.56 }
+                { name: 'F1 Reacción Familia', shortName: 'F1', value: 9.26, type: 'riesgo', color: '#dd6b20' },
+                { name: 'F2 Grupo Amigos', shortName: 'F2', value: 6.87, type: 'riesgo', color: '#f59e0b' },
+                { name: 'F3 Acceso Drogas', shortName: 'F3', value: 8.00, type: 'riesgo', color: '#dd6b20' },
+                { name: 'F4 Riesgo Familiar', shortName: 'F4', value: 6.69, type: 'riesgo', color: '#f59e0b' },
+                { name: 'F5 Educación Familiar', shortName: 'F5', value: 6.56, type: 'protección', color: '#e53e3e' },
+                { name: 'F6 Actividades Protectoras', shortName: 'F6', value: 10.98, type: 'protección', color: '#38a169' },
+                { name: 'F7 Estilo Educativo', shortName: 'F7', value: 10.98, type: 'protección', color: '#38a169' }
             ],
-            demographics: {
-                total: 54,
-                ivg: 9.57,
-                media: 3.23,
-                repetidores: 7.4
-            }
+            riskProfile: [
+                { label: 'Bajo riesgo', value: 25, color: '#38a169' },
+                { label: 'Riesgo moderado', value: 50, color: '#f59e0b' },
+                { label: 'Alto riesgo', value: 25, color: '#e53e3e' }
+            ]
         };
 
-        // Local storage for discussions (fallback if Google Sheets not configured)
+        // Preguntas predefinidas
+        const predefinedQuestions = {
+            'F5': '¿Qué estrategias URGENTES proponen para mejorar la educación familiar sobre drogas (F5: 6.56 - CRÍTICO)?',
+            'F1': '¿Cómo podemos ayudar a las familias a manejar mejor las situaciones de riesgo (F1: 9.26)?',
+            'F6': '¿Cómo potenciamos las actividades protectoras que ya funcionan bien (F6: 10.98)?',
+            'cronograma-prep': '¿Qué recursos específicos necesitamos para la preparación del programa F5 en 2 semanas?',
+            'cronograma-launch': '¿Cómo organizamos el lanzamiento simultáneo de talleres parentales y apoyo monoparental?',
+            'cronograma-eval': '¿Qué indicadores específicos usaremos para evaluar la efectividad en mes 2-3?',
+            'cronograma-consol': '¿Cómo garantizamos la sostenibilidad del programa a largo plazo?'
+        };
+
+        // Sistema de discusiones
         let discussions = JSON.parse(localStorage.getItem('fridaDiscussions')) || [
             {
                 id: 1,
                 author: "Dr. García - Coordinador",
-                question: "¿Qué estrategias específicas recomiendan para abordar el déficit en educación familiar sobre drogas (F5: 6.56)?",
+                question: "¿Qué estrategias específicas recomiendan para abordar el déficit crítico en educación familiar sobre drogas (F5: 6.56)?",
                 responses: [
                     {
                         id: 1,
                         author: "Prof. Martínez - Orientación",
-                        response: "Propongo talleres mensuales obligatorios para padres con material audiovisual y casos prácticos",
+                        response: "Propongo talleres mensuales obligatorios para padres con material audiovisual, casos prácticos y seguimiento personalizado",
                         likes: 5,
                         timestamp: "Hace 2 horas"
                     },
                     {
                         id: 2,
                         author: "Psic. López - Equipos",
-                        response: "Necesitamos también un programa de formación diferenciado para familias monoparentales (42.6% de la muestra)",
+                        response: "Necesitamos un programa diferenciado para familias monoparentales (42.6% de muestra). Horarios flexibles y apoyo digital",
                         likes: 3,
                         timestamp: "Hace 1 hora"
                     }
@@ -402,105 +1000,60 @@
             {
                 id: 2,
                 author: "Jefa Estudios",
-                question: "¿Cómo podemos aprovechar las fortalezas en F6 (Actividades Protectoras: 10.98) y F7 (Estilo Educativo: 10.98)?",
+                question: "¿Cómo aprovechamos las fortalezas en F6 (Actividades: 10.98) y F7 (Estilo Educativo: 10.98) para reforzar las áreas débiles?",
                 responses: [
                     {
                         id: 3,
                         author: "Prof. Ruiz - Ed. Física",
-                        response: "Ampliar horarios de actividades extraescolares y crear programa de mentores entre estudiantes",
+                        response: "Crear programa de mentores familiares donde padres con buen estilo educativo apoyen a otros. Ampliar actividades fin de semana",
                         likes: 4,
                         timestamp: "Hace 30 min"
                     }
                 ],
                 priority: "media",
                 timestamp: "Hace 1 día"
-            },
-            {
-                id: 3,
-                author: "Equipo Directivo",
-                question: "¿Qué recursos adicionales necesitamos para implementar las intervenciones prioritarias?",
-                responses: [],
-                priority: "alta",
-                timestamp: "Hace 1 hora"
             }
         ];
 
-        // Initialize the dashboard
+        // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
-            lucide.createIcons();
-            setActiveTab('overview');
-            initializeCharts();
+            initializeDashboard();
+            createCharts();
             updateDiscussions();
             updateStats();
         });
 
-        // Tab management
-        function setActiveTab(tabId) {
-            // Hide all tab contents
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.add('hidden');
-            });
-
-            // Show selected tab content
-            document.getElementById(tabId).classList.remove('hidden');
-
-            // Update tab buttons
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('border-blue-500', 'text-blue-600');
-                button.classList.add('border-transparent', 'text-gray-500');
-            });
-
-            document.querySelector(`[data-tab="${tabId}"]`).classList.add('border-blue-500', 'text-blue-600');
-            document.querySelector(`[data-tab="${tabId}"]`).classList.remove('border-transparent', 'text-gray-500');
-
-            // Reinitialize charts if needed
-            if (tabId === 'factors') {
-                setTimeout(initializeRadarCharts, 100);
-            }
+        function initializeDashboard() {
+            // Mostrar fecha actual
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('es-ES');
+            
+            // Mostrar URL actual
+            document.getElementById('currentUrl').textContent = window.location.href;
+            
+            // Simular usuarios activos
+            updateActiveUsers();
+            setInterval(updateActiveUsers, 30000);
         }
 
-        // Chart initialization
-        function initializeCharts() {
-            // Risk Profile Pie Chart
-            const riskCtx = document.getElementById('riskProfileChart').getContext('2d');
-            new Chart(riskCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Bajo riesgo', 'Riesgo moderado', 'Alto riesgo'],
-                    datasets: [{
-                        data: [25, 50, 25],
-                        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
-                        borderWidth: 2,
-                        borderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
+        function updateActiveUsers() {
+            const count = Math.floor(Math.random() * 4) + 3;
+            document.getElementById('activeUsers').textContent = count;
+        }
 
-            // Factors Bar Chart
-            const factorsCtx = document.getElementById('factorsChart').getContext('2d');
+        function createCharts() {
+            // Gráfico de barras de factores
+            const factorsCtx = document.getElementById('factorsBarChart').getContext('2d');
             new Chart(factorsCtx, {
                 type: 'bar',
                 data: {
-                    labels: fridaData.factors.map(f => f.name),
+                    labels: fridaData.factors.map(f => f.shortName),
                     datasets: [{
                         label: 'Puntuación',
                         data: fridaData.factors.map(f => f.value),
-                        backgroundColor: fridaData.factors.map(f => 
-                            f.type === 'riesgo' ? '#ef4444' : '#10b981'
-                        ),
-                        borderColor: fridaData.factors.map(f => 
-                            f.type === 'riesgo' ? '#dc2626' : '#059669'
-                        ),
-                        borderWidth: 1
+                        backgroundColor: fridaData.factors.map(f => f.color),
+                        borderColor: fridaData.factors.map(f => f.color),
+                        borderWidth: 2,
+                        borderRadius: 8
                     }]
                 },
                 options: {
@@ -509,17 +1062,144 @@
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const index = tooltipItems[0].dataIndex;
+                                    return fridaData.factors[index].name;
+                                },
+                                label: function(context) {
+                                    return `Puntuación: ${context.parsed.y}`;
+                                }
+                            }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            max: 20
+                            max: 20,
+                            grid: {
+                                color: '#e2e8f0'
+                            },
+                            ticks: {
+                                color: '#4a5568'
+                            }
                         },
                         x: {
+                            grid: {
+                                display: false
+                            },
                             ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
+                                color: '#4a5568',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Gráfico comparativo riesgo vs protección
+            const riskFactors = fridaData.factors.filter(f => f.type === 'riesgo');
+            const protectionFactors = fridaData.factors.filter(f => f.type === 'protección');
+            
+            const riskProtectionCtx = document.getElementById('riskProtectionChart').getContext('2d');
+            new Chart(riskProtectionCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7'],
+                    datasets: [{
+                        label: 'Factores de Riesgo',
+                        data: [9.26, 6.87, 8.00, 6.69, 0, 0, 0],
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        borderColor: '#ef4444',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ef4444',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#ef4444'
+                    }, {
+                        label: 'Factores de Protección',
+                        data: [0, 0, 0, 0, 6.56, 10.98, 10.98],
+                        backgroundColor: 'rgba(56, 161, 105, 0.2)',
+                        borderColor: '#38a169',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#38a169',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#38a169'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 20,
+                            grid: {
+                                color: '#e2e8f0'
+                            },
+                            angleLines: {
+                                color: '#e2e8f0'
+                            },
+                            pointLabels: {
+                                color: '#4a5568',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#4a5568',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de perfil de riesgo
+            const riskProfileCtx = document.getElementById('riskProfileChart').getContext('2d');
+            new Chart(riskProfileCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: fridaData.riskProfile.map(r => r.label),
+                    datasets: [{
+                        data: fridaData.riskProfile.map(r => r.value),
+                        backgroundColor: fridaData.riskProfile.map(r => r.color),
+                        borderColor: '#fff',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#4a5568',
+                                font: {
+                                    size: 14
+                                },
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.parsed}% (~${Math.round(context.parsed * 54 / 100)} estudiantes)`;
+                                }
                             }
                         }
                     }
@@ -527,271 +1207,27 @@
             });
         }
 
-        function initializeRadarCharts() {
-            // Risk Factors Radar
-            const riskRadarCtx = document.getElementById('riskRadarChart').getContext('2d');
-            const riskFactors = fridaData.factors.filter(f => f.type === 'riesgo');
+        function focusOnQuestion(factorCode) {
+            const question = predefinedQuestions[factorCode] || `¿Qué opinan sobre ${factorCode}?`;
             
-            new Chart(riskRadarCtx, {
-                type: 'radar',
-                data: {
-                    labels: riskFactors.map(f => f.name.split(' ').slice(0, 2).join(' ')),
-                    datasets: [{
-                        label: 'Puntuación de Riesgo',
-                        data: riskFactors.map(f => f.value),
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                        pointBackgroundColor: '#ef4444',
-                        pointBorderColor: '#fff',
-                        pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: '#ef4444'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    elements: {
-                        line: {
-                            borderWidth: 3
-                        }
-                    },
-                    scales: {
-                        r: {
-                            angleLines: {
-                                display: false
-                            },
-                            suggestedMin: 0,
-                            suggestedMax: 20
-                        }
-                    }
-                }
-            });
-
-            // Protection Factors Radar
-            const protectionRadarCtx = document.getElementById('protectionRadarChart').getContext('2d');
-            const protectionFactors = fridaData.factors.filter(f => f.type === 'protección');
+            document.getElementById('questionInput').value = question;
+            document.getElementById('priorityInput').value = factorCode === 'F5' ? 'alta' : 'media';
             
-            new Chart(protectionRadarCtx, {
-                type: 'radar',
-                data: {
-                    labels: protectionFactors.map(f => f.name.split(' ').slice(0, 2).join(' ')),
-                    datasets: [{
-                        label: 'Puntuación de Protección',
-                        data: protectionFactors.map(f => f.value),
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                        pointBackgroundColor: '#10b981',
-                        pointBorderColor: '#fff',
-                        pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: '#10b981'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    elements: {
-                        line: {
-                            borderWidth: 3
-                        }
-                    },
-                    scales: {
-                        r: {
-                            angleLines: {
-                                display: false
-                            },
-                            suggestedMin: 0,
-                            suggestedMax: 20
-                        }
-                    }
-                }
+            // Scroll al formulario
+            document.querySelector('.collaboration-section').scrollIntoView({
+                behavior: 'smooth'
             });
-
-            // Update factors table
-            updateFactorsTable();
-        }
-
-        function updateFactorsTable() {
-            const tbody = document.getElementById('factorsTableBody');
-            tbody.innerHTML = '';
-
-            fridaData.factors.forEach(factor => {
-                const evaluation = getFactorEvaluation(factor);
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${factor.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            factor.type === 'riesgo' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                        }">
-                            ${factor.type}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${factor.value}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${factor.range}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${evaluation.class}">
-                            ${evaluation.text}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button onclick="focusOnFactor('${factor.name}')" class="text-blue-600 hover:text-blue-900 text-xs">
-                            Discutir
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        function getFactorEvaluation(factor) {
-            if (factor.name.includes('F5') && factor.value < 7) {
-                return { text: 'CRÍTICO', class: 'bg-red-100 text-red-800' };
-            } else if (factor.type === 'riesgo' && factor.value > 8) {
-                return { text: 'ALTO', class: 'bg-orange-100 text-orange-800' };
-            } else if (factor.type === 'protección' && factor.value > 10) {
-                return { text: 'BUENO', class: 'bg-green-100 text-green-800' };
-            } else {
-                return { text: 'MODERADO', class: 'bg-yellow-100 text-yellow-800' };
-            }
-        }
-
-        // Discussion management
-        function updateDiscussions() {
-            updateRecentDiscussions();
-            updateDiscussionsContainer();
-            updateStats();
-        }
-
-        function updateRecentDiscussions() {
-            const container = document.getElementById('recentDiscussions');
-            container.innerHTML = '';
-
-            discussions.slice(0, 3).forEach(discussion => {
-                const div = document.createElement('div');
-                div.className = 'border-l-4 border-blue-500 pl-3 cursor-pointer hover:bg-gray-50 p-2 rounded-r';
-                div.onclick = () => {
-                    setActiveTab('collaboration');
-                    document.getElementById(`discussion-${discussion.id}`).scrollIntoView();
-                };
-                
-                div.innerHTML = `
-                    <p class="text-sm font-medium text-gray-900 truncate">
-                        ${discussion.question.substring(0, 50)}...
-                    </p>
-                    <div class="flex justify-between items-center mt-1">
-                        <span class="text-xs text-gray-500">${discussion.author}</span>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-xs text-gray-500">${discussion.responses.length} resp.</span>
-                            <span class="px-2 py-1 text-xs rounded ${getPriorityClass(discussion.priority)}">
-                                ${discussion.priority}
-                            </span>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        function updateDiscussionsContainer() {
-            const container = document.getElementById('discussionsContainer');
-            container.innerHTML = '';
-
-            discussions.forEach(discussion => {
-                const div = document.createElement('div');
-                div.id = `discussion-${discussion.id}`;
-                div.className = 'bg-white rounded-lg shadow-sm p-6 fade-in';
-                
-                div.innerHTML = `
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1">
-                            <div class="flex items-center space-x-3 mb-2">
-                                <span class="font-semibold text-gray-900">${discussion.author}</span>
-                                <span class="text-sm text-gray-500">${discussion.timestamp}</span>
-                                <span class="px-2 py-1 text-xs rounded ${getPriorityClass(discussion.priority)}">
-                                    Prioridad ${discussion.priority}
-                                </span>
-                            </div>
-                            <p class="text-gray-800 mb-4">${discussion.question}</p>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        ${discussion.responses.map(response => `
-                            <div class="bg-gray-50 rounded-lg p-4 ml-6">
-                                <div class="flex justify-between items-start mb-2">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="font-medium text-gray-900">${response.author}</span>
-                                        <span class="text-sm text-gray-500">${response.timestamp}</span>
-                                    </div>
-                                    <div class="flex items-center space-x-2">
-                                        <button onclick="likeResponse(${discussion.id}, ${response.id})" class="flex items-center space-x-1 text-gray-500 hover:text-blue-600 transition-colors">
-                                            <i data-lucide="thumbs-up" class="w-4 h-4"></i>
-                                            <span class="text-sm">${response.likes}</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <p class="text-gray-700">${response.response}</p>
-                            </div>
-                        `).join('')}
-
-                        <div class="ml-6">
-                            <div class="flex space-x-3">
-                                <input type="text" id="response-${discussion.id}" placeholder="Escribe tu respuesta..." class="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <button onclick="addResponse(${discussion.id})" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
-                                    <i data-lucide="send" class="w-4 h-4"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-
-            // Re-initialize Lucide icons
-            lucide.createIcons();
-        }
-
-        function getPriorityClass(priority) {
-            switch(priority) {
-                case 'alta': return 'bg-red-100 text-red-800';
-                case 'media': return 'bg-yellow-100 text-yellow-800';
-                case 'baja': return 'bg-green-100 text-green-800';
-                default: return 'bg-gray-100 text-gray-800';
-            }
-        }
-
-        function updateStats() {
-            document.getElementById('activeUsers').textContent = Math.floor(Math.random() * 5) + 3; // Simulated
-            document.getElementById('totalDiscussions').textContent = discussions.length;
             
-            const highPriorityCount = discussions.filter(d => d.priority === 'alta').length;
-            const badge = document.getElementById('priorityBadge');
-            if (highPriorityCount > 0) {
-                badge.textContent = highPriorityCount;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
+            // Focus en el campo de autor
+            setTimeout(() => {
+                document.getElementById('authorInput').focus();
+            }, 500);
         }
 
-        // Modal management
-        function openNewQuestionModal() {
-            document.getElementById('questionModal').classList.remove('hidden');
-            document.getElementById('questionModal').classList.add('flex');
-        }
-
-        function closeNewQuestionModal() {
-            document.getElementById('questionModal').classList.add('hidden');
-            document.getElementById('questionModal').classList.remove('flex');
-            document.getElementById('authorName').value = '';
-            document.getElementById('questionText').value = '';
-            document.getElementById('questionPriority').value = 'media';
-        }
-
-        function addNewQuestion() {
-            const author = document.getElementById('authorName').value.trim();
-            const question = document.getElementById('questionText').value.trim();
-            const priority = document.getElementById('questionPriority').value;
+        function addQuestion() {
+            const author = document.getElementById('authorInput').value.trim();
+            const question = document.getElementById('questionInput').value.trim();
+            const priority = document.getElementById('priorityInput').value;
 
             if (!author || !question) {
                 showNotification('Por favor, completa todos los campos', 'error');
@@ -810,9 +1246,21 @@
             discussions.unshift(newDiscussion);
             saveDiscussions();
             updateDiscussions();
-            closeNewQuestionModal();
-            setActiveTab('collaboration');
-            showNotification('Pregunta añadida correctamente', 'success');
+            updateStats();
+            
+            // Limpiar formulario
+            document.getElementById('authorInput').value = '';
+            document.getElementById('questionInput').value = '';
+            document.getElementById('priorityInput').value = 'media';
+            
+            showNotification('¡Pregunta añadida correctamente! Tu equipo puede verla ahora.', 'success');
+            
+            // Scroll a discusiones
+            setTimeout(() => {
+                document.querySelector('#discussionsContainer').scrollIntoView({
+                    behavior: 'smooth'
+                });
+            }, 1000);
         }
 
         function addResponse(discussionId) {
@@ -828,7 +1276,7 @@
             if (discussion) {
                 discussion.responses.push({
                     id: Date.now(),
-                    author: "Usuario Actual", // In real implementation, get from user session
+                    author: "Usuario Actual",
                     response: responseText,
                     likes: 0,
                     timestamp: "Ahora"
@@ -853,105 +1301,102 @@
             }
         }
 
-        function focusOnFactor(factorCode) {
-            const questions = {
-                'F5': '¿Qué estrategias específicas proponen para mejorar la educación familiar sobre drogas (F5: 6.56 - puntuación más baja)?',
-                'F1': '¿Cómo podemos ayudar a las familias a manejar mejor las situaciones de riesgo (F1: 9.26)?',
-                'F6': '¿Cómo potenciamos las actividades protectoras que ya funcionan bien (F6: 10.98)?'
-            };
-
-            const question = questions[factorCode] || `¿Qué opinan sobre el factor ${factorCode}?`;
+        function updateDiscussions() {
+            const container = document.getElementById('discussionsContainer');
             
-            document.getElementById('questionText').value = question;
-            document.getElementById('questionPriority').value = factorCode === 'F5' ? 'alta' : 'media';
-            openNewQuestionModal();
+            if (discussions.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 50px; color: #718096;">
+                        <h3>No hay discusiones aún</h3>
+                        <p>¡Sé el primero en añadir una pregunta para tu equipo!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = discussions.map(discussion => {
+                const priorityClass = discussion.priority === 'alta' ? 'critical' : 
+                                   discussion.priority === 'media' ? 'warning' : 'good';
+                
+                return `
+                    <div class="discussion">
+                        <div class="discussion-header">
+                            <div class="discussion-author">${discussion.author}</div>
+                            <div class="discussion-time">
+                                ${discussion.timestamp} | 
+                                <span class="badge badge-${priorityClass}">
+                                    Prioridad ${discussion.priority.toUpperCase()}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="discussion-question">
+                            <strong>${discussion.question}</strong>
+                        </div>
+                        
+                        ${discussion.responses.map(response => `
+                            <div class="response">
+                                <div class="response-header">
+                                    <div>
+                                        <span class="response-author">${response.author}</span>
+                                        <span style="color: #718096; font-size: 0.9em; margin-left: 10px;">${response.timestamp}</span>
+                                    </div>
+                                    <div class="response-likes" onclick="likeResponse(${discussion.id}, ${response.id})">
+                                        👍 ${response.likes}
+                                    </div>
+                                </div>
+                                <div>${response.response}</div>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="response-form">
+                            <input type="text" id="response-${discussion.id}" placeholder="Escribe tu respuesta...">
+                            <button class="btn btn-primary" onclick="addResponse(${discussion.id})">📤 Enviar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        // Data persistence
+        function updateStats() {
+            document.getElementById('discussionCount').textContent = discussions.length;
+        }
+
         function saveDiscussions() {
             localStorage.setItem('fridaDiscussions', JSON.stringify(discussions));
-            // Here you would also sync with Google Sheets if configured
         }
 
-        function syncData() {
-            // In a real implementation, this would sync with Google Sheets
-            showNotification('Datos sincronizados', 'success');
-            updateStats();
-        }
-
-        // Notifications
         function showNotification(message, type) {
-            const container = document.getElementById('notifications');
             const notification = document.createElement('div');
-            notification.className = `notification p-4 rounded-lg shadow-lg mb-2 ${
-                type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 
-                'bg-red-100 text-red-800 border border-red-200'
-            }`;
-            notification.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <span>${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-400 hover:text-gray-600">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            `;
-            container.appendChild(notification);
-            lucide.createIcons();
-
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
             setTimeout(() => {
-                notification.remove();
-            }, 5000);
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 4000);
         }
 
-        // Timeline creation
-        function createTimeline() {
-            const container = document.getElementById('timelineContainer');
-            const timelineItems = [
-                {
-                    phase: 'Semana 1-2: Preparación F5',
-                    description: 'Diseño del programa de educación familiar sobre drogas',
-                    responsible: 'Dr. García, Prof. Martínez',
-                    color: 'red'
-                },
-                {
-                    phase: 'Mes 1: Lanzamiento',
-                    description: 'Inicio talleres parentales y apoyo familias monoparentales',
-                    responsible: 'Equipo completo',
-                    color: 'orange'
-                },
-                {
-                    phase: 'Mes 2-3: Evaluación',
-                    description: 'Primera evaluación de efectividad y ajustes',
-                    responsible: 'Orientación y Equipos',
-                    color: 'blue'
-                },
-                {
-                    phase: 'Mes 4+: Consolidación',
-                    description: 'Mantenimiento y mejora continua',
-                    responsible: 'Todos',
-                    color: 'green'
-                }
+        // Simular actividad
+        setInterval(() => {
+            const messages = [
+                'Prof. Ruiz ha comentado sobre actividades protectoras',
+                'Dr. García ha evaluado el cronograma',
+                'Nuevo miembro se ha unido al dashboard',
+                'Psic. López ha dado like a una respuesta'
             ];
-
-            container.innerHTML = timelineItems.map(item => `
-                <div class="flex items-center space-x-4">
-                    <div class="w-4 h-4 bg-${item.color}-500 rounded-full flex-shrink-0"></div>
-                    <div class="flex-1">
-                        <h4 class="font-semibold text-gray-900">${item.phase}</h4>
-                        <p class="text-sm text-gray-600">${item.description}</p>
-                        <p class="text-xs text-gray-500">Responsables: ${item.responsible}</p>
-                    </div>
-                    <button onclick="openNewQuestionModal()" class="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200 transition-colors">
-                        Comentar
-                    </button>
-                </div>
-            `).join('');
-        }
-
-        // Initialize timeline when action plan tab is first opened
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(createTimeline, 1000);
-        });
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            showNotification(randomMessage, 'success');
+        }, 120000);
     </script>
 </body>
 </html>
