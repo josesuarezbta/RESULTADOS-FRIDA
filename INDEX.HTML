@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Frida - Análisis Colaborativo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .notification {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Notification Container -->
+    <div id="notifications" class="fixed top-4 right-4 z-50"></div>
+
+    <div class="container mx-auto px-4 py-6 max-w-7xl">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                        Dashboard Frida - Análisis Colaborativo
+                    </h1>
+                    <p class="text-gray-600">
+                        Factores de riesgo y protección en 54 estudiantes de ESO
+                    </p>
+                </div>
+                <div class="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
+                    <div class="flex items-center space-x-2 text-gray-600">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                        <span class="text-sm">Colaboradores: <span id="activeUsers">0</span></span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-gray-600">
+                        <i data-lucide="message-circle" class="w-5 h-5"></i>
+                        <span class="text-sm">Discusiones: <span id="totalDiscussions">0</span></span>
+                    </div>
+                    <button onclick="syncData()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-2"></i>
+                        Sincronizar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="bg-white rounded-lg shadow-sm mb-6 fade-in">
+            <div class="border-b border-gray-200">
+                <nav class="flex space-x-8 px-6 overflow-x-auto">
+                    <button onclick="setActiveTab('overview')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap" data-tab="overview">
+                        Resumen General
+                    </button>
+                    <button onclick="setActiveTab('factors')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap" data-tab="factors">
+                        Factores R&P
+                    </button>
+                    <button onclick="setActiveTab('collaboration')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap relative" data-tab="collaboration">
+                        Discusión Colaborativa
+                        <span id="priorityBadge" class="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-1 hidden">0</span>
+                    </button>
+                    <button onclick="setActiveTab('action-plan')" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap" data-tab="action-plan">
+                        Plan de Acción
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Content Sections -->
+        <div id="overview" class="tab-content">
+            <!-- Overview Content -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                <!-- Key Metrics -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Métricas Clave</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Total Estudiantes</span>
+                            <span class="text-2xl font-bold text-blue-600">54</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">IVG Promedio</span>
+                            <span class="text-2xl font-bold text-orange-600">9.57</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Media Anterior</span>
+                            <span class="text-2xl font-bold text-green-600">3.23</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">% Repetidores</span>
+                            <span class="text-2xl font-bold text-red-600">7.4%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Profile Chart -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Perfil de Riesgo</h3>
+                    <div class="relative">
+                        <canvas id="riskProfileChart" width="300" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Quick Discussion Access -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Discusiones Recientes</h3>
+                    <div id="recentDiscussions" class="space-y-3">
+                        <!-- Dynamic content -->
+                    </div>
+                    <button onclick="setActiveTab('collaboration')" class="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors">
+                        Ver todas las discusiones
+                    </button>
+                </div>
+
+                <!-- Factor Analysis Chart -->
+                <div class="xl:col-span-3 bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Análisis de Factores</h3>
+                        <button onclick="openNewQuestionModal()" class="mt-2 md:mt-0 flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>Nueva Pregunta</span>
+                        </button>
+                    </div>
+                    <canvas id="factorsChart" width="800" height="400"></canvas>
+                </div>
+
+                <!-- Critical Alerts -->
+                <div class="xl:col-span-3 bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Alertas Críticas</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                                <h4 class="font-semibold text-red-800">CRÍTICO</h4>
+                            </div>
+                            <p class="text-sm text-red-700">
+                                <strong>F5 Educación Familiar (6.56):</strong> Puntuación más baja detectada. 
+                                Requiere intervención inmediata.
+                            </p>
+                            <button onclick="focusOnFactor('F5')" class="mt-2 text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+                                Discutir soluciones
+                            </button>
+                        </div>
+                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+                                <h4 class="font-semibold text-orange-800">ALTO RIESGO</h4>
+                            </div>
+                            <p class="text-sm text-orange-700">
+                                <strong>F1 Reacción Familiar (9.26):</strong> Necesario mejorar 
+                                manejo familiar de situaciones de riesgo.
+                            </p>
+                            <button onclick="focusOnFactor('F1')" class="mt-2 text-xs bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700">
+                                Ver estrategias
+                            </button>
+                        </div>
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                                <h4 class="font-semibold text-green-800">FORTALEZAS</h4>
+                            </div>
+                            <p class="text-sm text-green-700">
+                                <strong>F6 y F7 (10.98):</strong> Excelentes puntuaciones en 
+                                actividades protectoras y estilo educativo.
+                            </p>
+                            <button onclick="focusOnFactor('F6')" class="mt-2 text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
+                                Potenciar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="factors" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Risk Factors Radar -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Factores de Riesgo</h3>
+                    <canvas id="riskRadarChart" width="400" height="300"></canvas>
+                </div>
+
+                <!-- Protection Factors Radar -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Factores de Protección</h3>
+                    <canvas id="protectionRadarChart" width="400" height="300"></canvas>
+                </div>
+
+                <!-- Factor Details Table -->
+                <div class="lg:col-span-2 bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Análisis Detallado por Factor</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Factor</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Puntuación</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rango</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evaluación</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="factorsTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="collaboration" class="tab-content hidden">
+            <!-- New Question Button -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+                <button onclick="openNewQuestionModal()" class="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Nueva Pregunta o Discusión</span>
+                </button>
+            </div>
+
+            <!-- Discussions Container -->
+            <div id="discussionsContainer" class="space-y-6">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+
+        <div id="action-plan" class="tab-content hidden">
+            <!-- Action Plan Content -->
+            <div class="space-y-6">
+                <!-- Priority Actions -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">Plan de Acción Colaborativo</h3>
+                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i>
+                            <span>Basado en discusiones del equipo</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div class="border-l-4 border-red-500 pl-4">
+                            <h4 class="font-semibold text-red-800 mb-2">Acción Inmediata</h4>
+                            <div class="space-y-2">
+                                <div class="bg-red-50 p-3 rounded">
+                                    <p class="text-sm font-medium">Programa F5 - Educación Familiar</p>
+                                    <p class="text-xs text-red-600 mt-1">Crítico: Puntuación más baja (6.56)</p>
+                                    <div class="flex flex-wrap items-center mt-2 space-x-2 space-y-1">
+                                        <span class="text-xs bg-red-100 px-2 py-1 rounded">Resp: Orientación</span>
+                                        <span class="text-xs bg-red-100 px-2 py-1 rounded">Plazo: 2 sem</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-l-4 border-orange-500 pl-4">
+                            <h4 class="font-semibold text-orange-800 mb-2">Corto Plazo</h4>
+                            <div class="space-y-2">
+                                <div class="bg-orange-50 p-3 rounded">
+                                    <p class="text-sm font-medium">Apoyo Familias Monoparentales</p>
+                                    <p class="text-xs text-orange-600 mt-1">42.6% de la muestra</p>
+                                    <div class="flex flex-wrap items-center mt-2 space-x-2 space-y-1">
+                                        <span class="text-xs bg-orange-100 px-2 py-1 rounded">Resp: Equipos</span>
+                                        <span class="text-xs bg-orange-100 px-2 py-1 rounded">Plazo: 1 mes</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-l-4 border-green-500 pl-4">
+                            <h4 class="font-semibold text-green-800 mb-2">Potenciar Fortalezas</h4>
+                            <div class="space-y-2">
+                                <div class="bg-green-50 p-3 rounded">
+                                    <p class="text-sm font-medium">Ampliar Actividades F6/F7</p>
+                                    <p class="text-xs text-green-600 mt-1">Puntuaciones altas (10.98)</p>
+                                    <div class="flex flex-wrap items-center mt-2 space-x-2 space-y-1">
+                                        <span class="text-xs bg-green-100 px-2 py-1 rounded">Resp: Ed. Física</span>
+                                        <span class="text-xs bg-green-100 px-2 py-1 rounded">Plazo: Continuo</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timeline -->
+                    <div class="border-t pt-6">
+                        <h4 class="font-semibold text-gray-900 mb-4">Cronograma de Implementación</h4>
+                        <div id="timelineContainer" class="space-y-4">
+                            <!-- Dynamic timeline content -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for New Questions -->
+    <div id="questionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Nueva Pregunta o Discusión</h3>
+                    <button onclick="closeNewQuestionModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tu nombre/cargo</label>
+                        <input type="text" id="authorName" placeholder="Ej: Dr. García - Coordinador" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Pregunta o tema de discusión</label>
+                        <textarea id="questionText" placeholder="¿Qué aspecto del análisis Frida quieres discutir con el equipo?" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="4"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Prioridad</label>
+                        <select id="questionPriority" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="baja">Baja - Información general</option>
+                            <option value="media" selected>Media - Decisión importante</option>
+                            <option value="alta">Alta - Requiere acción inmediata</option>
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="closeNewQuestionModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">
+                            Cancelar
+                        </button>
+                        <button onclick="addNewQuestion()" class="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            <span>Publicar Pregunta</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration for Google Sheets integration
+        const CONFIG = {
+            SHEET_ID: '1BvGQyGNRZfvwA8B6QYQIhqoEqTVCZ3RVz_YeAp9ZcOo', // Replace with your Google Sheet ID
+            API_KEY: 'YOUR_GOOGLE_SHEETS_API_KEY', // Replace with your API key
+            RANGE: 'Discussions!A:F'
+        };
+
+        // Data for the dashboard
+        const fridaData = {
+            factors: [
+                { name: 'F1 Reacción Familia', value: 9.26, type: 'riesgo', range: '1-19', stdDev: 4.91 },
+                { name: 'F2 Grupo Amigos', value: 6.87, type: 'riesgo', range: '1-16', stdDev: 4.02 },
+                { name: 'F3 Acceso Drogas', value: 8.00, type: 'riesgo', range: '1-17', stdDev: 4.14 },
+                { name: 'F4 Riesgo Familiar', value: 6.69, type: 'riesgo', range: '1-23', stdDev: 4.58 },
+                { name: 'F5 Educación Familiar', value: 6.56, type: 'protección', range: '1-16', stdDev: 4.54 },
+                { name: 'F6 Actividades Protectoras', value: 10.98, type: 'protección', range: '1-20', stdDev: 4.17 },
+                { name: 'F7 Estilo Educativo', value: 10.98, type: 'protección', range: '2-17', stdDev: 3.56 }
+            ],
+            demographics: {
+                total: 54,
+                ivg: 9.57,
+                media: 3.23,
+                repetidores: 7.4
+            }
+        };
+
+        // Local storage for discussions (fallback if Google Sheets not configured)
+        let discussions = JSON.parse(localStorage.getItem('fridaDiscussions')) || [
+            {
+                id: 1,
+                author: "Dr. García - Coordinador",
+                question: "¿Qué estrategias específicas recomiendan para abordar el déficit en educación familiar sobre drogas (F5: 6.56)?",
+                responses: [
+                    {
+                        id: 1,
+                        author: "Prof. Martínez - Orientación",
+                        response: "Propongo talleres mensuales obligatorios para padres con material audiovisual y casos prácticos",
+                        likes: 5,
+                        timestamp: "Hace 2 horas"
+                    },
+                    {
+                        id: 2,
+                        author: "Psic. López - Equipos",
+                        response: "Necesitamos también un programa de formación diferenciado para familias monoparentales (42.6% de la muestra)",
+                        likes: 3,
+                        timestamp: "Hace 1 hora"
+                    }
+                ],
+                priority: "alta",
+                timestamp: "Hace 3 horas"
+            },
+            {
+                id: 2,
+                author: "Jefa Estudios",
+                question: "¿Cómo podemos aprovechar las fortalezas en F6 (Actividades Protectoras: 10.98) y F7 (Estilo Educativo: 10.98)?",
+                responses: [
+                    {
+                        id: 3,
+                        author: "Prof. Ruiz - Ed. Física",
+                        response: "Ampliar horarios de actividades extraescolares y crear programa de mentores entre estudiantes",
+                        likes: 4,
+                        timestamp: "Hace 30 min"
+                    }
+                ],
+                priority: "media",
+                timestamp: "Hace 1 día"
+            },
+            {
+                id: 3,
+                author: "Equipo Directivo",
+                question: "¿Qué recursos adicionales necesitamos para implementar las intervenciones prioritarias?",
+                responses: [],
+                priority: "alta",
+                timestamp: "Hace 1 hora"
+            }
+        ];
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+            setActiveTab('overview');
+            initializeCharts();
+            updateDiscussions();
+            updateStats();
+        });
+
+        // Tab management
+        function setActiveTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Show selected tab content
+            document.getElementById(tabId).classList.remove('hidden');
+
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('border-blue-500', 'text-blue-600');
+                button.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('border-blue-500', 'text-blue-600');
+            document.querySelector(`[data-tab="${tabId}"]`).classList.remove('border-transparent', 'text-gray-500');
+
+            // Reinitialize charts if needed
+            if (tabId === 'factors') {
+                setTimeout(initializeRadarCharts, 100);
+            }
+        }
+
+        // Chart initialization
+        function initializeCharts() {
+            // Risk Profile Pie Chart
+            const riskCtx = document.getElementById('riskProfileChart').getContext('2d');
+            new Chart(riskCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Bajo riesgo', 'Riesgo moderado', 'Alto riesgo'],
+                    datasets: [{
+                        data: [25, 50, 25],
+                        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Factors Bar Chart
+            const factorsCtx = document.getElementById('factorsChart').getContext('2d');
+            new Chart(factorsCtx, {
+                type: 'bar',
+                data: {
+                    labels: fridaData.factors.map(f => f.name),
+                    datasets: [{
+                        label: 'Puntuación',
+                        data: fridaData.factors.map(f => f.value),
+                        backgroundColor: fridaData.factors.map(f => 
+                            f.type === 'riesgo' ? '#ef4444' : '#10b981'
+                        ),
+                        borderColor: fridaData.factors.map(f => 
+                            f.type === 'riesgo' ? '#dc2626' : '#059669'
+                        ),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 20
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initializeRadarCharts() {
+            // Risk Factors Radar
+            const riskRadarCtx = document.getElementById('riskRadarChart').getContext('2d');
+            const riskFactors = fridaData.factors.filter(f => f.type === 'riesgo');
+            
+            new Chart(riskRadarCtx, {
+                type: 'radar',
+                data: {
+                    labels: riskFactors.map(f => f.name.split(' ').slice(0, 2).join(' ')),
+                    datasets: [{
+                        label: 'Puntuación de Riesgo',
+                        data: riskFactors.map(f => f.value),
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        pointBackgroundColor: '#ef4444',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#ef4444'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    elements: {
+                        line: {
+                            borderWidth: 3
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: {
+                                display: false
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 20
+                        }
+                    }
+                }
+            });
+
+            // Protection Factors Radar
+            const protectionRadarCtx = document.getElementById('protectionRadarChart').getContext('2d');
+            const protectionFactors = fridaData.factors.filter(f => f.type === 'protección');
+            
+            new Chart(protectionRadarCtx, {
+                type: 'radar',
+                data: {
+                    labels: protectionFactors.map(f => f.name.split(' ').slice(0, 2).join(' ')),
+                    datasets: [{
+                        label: 'Puntuación de Protección',
+                        data: protectionFactors.map(f => f.value),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#10b981'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    elements: {
+                        line: {
+                            borderWidth: 3
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: {
+                                display: false
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 20
+                        }
+                    }
+                }
+            });
+
+            // Update factors table
+            updateFactorsTable();
+        }
+
+        function updateFactorsTable() {
+            const tbody = document.getElementById('factorsTableBody');
+            tbody.innerHTML = '';
+
+            fridaData.factors.forEach(factor => {
+                const evaluation = getFactorEvaluation(factor);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${factor.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            factor.type === 'riesgo' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                        }">
+                            ${factor.type}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${factor.value}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${factor.range}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${evaluation.class}">
+                            ${evaluation.text}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button onclick="focusOnFactor('${factor.name}')" class="text-blue-600 hover:text-blue-900 text-xs">
+                            Discutir
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function getFactorEvaluation(factor) {
+            if (factor.name.includes('F5') && factor.value < 7) {
+                return { text: 'CRÍTICO', class: 'bg-red-100 text-red-800' };
+            } else if (factor.type === 'riesgo' && factor.value > 8) {
+                return { text: 'ALTO', class: 'bg-orange-100 text-orange-800' };
+            } else if (factor.type === 'protección' && factor.value > 10) {
+                return { text: 'BUENO', class: 'bg-green-100 text-green-800' };
+            } else {
+                return { text: 'MODERADO', class: 'bg-yellow-100 text-yellow-800' };
+            }
+        }
+
+        // Discussion management
+        function updateDiscussions() {
+            updateRecentDiscussions();
+            updateDiscussionsContainer();
+            updateStats();
+        }
+
+        function updateRecentDiscussions() {
+            const container = document.getElementById('recentDiscussions');
+            container.innerHTML = '';
+
+            discussions.slice(0, 3).forEach(discussion => {
+                const div = document.createElement('div');
+                div.className = 'border-l-4 border-blue-500 pl-3 cursor-pointer hover:bg-gray-50 p-2 rounded-r';
+                div.onclick = () => {
+                    setActiveTab('collaboration');
+                    document.getElementById(`discussion-${discussion.id}`).scrollIntoView();
+                };
+                
+                div.innerHTML = `
+                    <p class="text-sm font-medium text-gray-900 truncate">
+                        ${discussion.question.substring(0, 50)}...
+                    </p>
+                    <div class="flex justify-between items-center mt-1">
+                        <span class="text-xs text-gray-500">${discussion.author}</span>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs text-gray-500">${discussion.responses.length} resp.</span>
+                            <span class="px-2 py-1 text-xs rounded ${getPriorityClass(discussion.priority)}">
+                                ${discussion.priority}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateDiscussionsContainer() {
+            const container = document.getElementById('discussionsContainer');
+            container.innerHTML = '';
+
+            discussions.forEach(discussion => {
+                const div = document.createElement('div');
+                div.id = `discussion-${discussion.id}`;
+                div.className = 'bg-white rounded-lg shadow-sm p-6 fade-in';
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <span class="font-semibold text-gray-900">${discussion.author}</span>
+                                <span class="text-sm text-gray-500">${discussion.timestamp}</span>
+                                <span class="px-2 py-1 text-xs rounded ${getPriorityClass(discussion.priority)}">
+                                    Prioridad ${discussion.priority}
+                                </span>
+                            </div>
+                            <p class="text-gray-800 mb-4">${discussion.question}</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        ${discussion.responses.map(response => `
+                            <div class="bg-gray-50 rounded-lg p-4 ml-6">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-medium text-gray-900">${response.author}</span>
+                                        <span class="text-sm text-gray-500">${response.timestamp}</span>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <button onclick="likeResponse(${discussion.id}, ${response.id})" class="flex items-center space-x-1 text-gray-500 hover:text-blue-600 transition-colors">
+                                            <i data-lucide="thumbs-up" class="w-4 h-4"></i>
+                                            <span class="text-sm">${response.likes}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="text-gray-700">${response.response}</p>
+                            </div>
+                        `).join('')}
+
+                        <div class="ml-6">
+                            <div class="flex space-x-3">
+                                <input type="text" id="response-${discussion.id}" placeholder="Escribe tu respuesta..." class="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <button onclick="addResponse(${discussion.id})" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
+                                    <i data-lucide="send" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            // Re-initialize Lucide icons
+            lucide.createIcons();
+        }
+
+        function getPriorityClass(priority) {
+            switch(priority) {
+                case 'alta': return 'bg-red-100 text-red-800';
+                case 'media': return 'bg-yellow-100 text-yellow-800';
+                case 'baja': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('activeUsers').textContent = Math.floor(Math.random() * 5) + 3; // Simulated
+            document.getElementById('totalDiscussions').textContent = discussions.length;
+            
+            const highPriorityCount = discussions.filter(d => d.priority === 'alta').length;
+            const badge = document.getElementById('priorityBadge');
+            if (highPriorityCount > 0) {
+                badge.textContent = highPriorityCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // Modal management
+        function openNewQuestionModal() {
+            document.getElementById('questionModal').classList.remove('hidden');
+            document.getElementById('questionModal').classList.add('flex');
+        }
+
+        function closeNewQuestionModal() {
+            document.getElementById('questionModal').classList.add('hidden');
+            document.getElementById('questionModal').classList.remove('flex');
+            document.getElementById('authorName').value = '';
+            document.getElementById('questionText').value = '';
+            document.getElementById('questionPriority').value = 'media';
+        }
+
+        function addNewQuestion() {
+            const author = document.getElementById('authorName').value.trim();
+            const question = document.getElementById('questionText').value.trim();
+            const priority = document.getElementById('questionPriority').value;
+
+            if (!author || !question) {
+                showNotification('Por favor, completa todos los campos', 'error');
+                return;
+            }
+
+            const newDiscussion = {
+                id: Date.now(),
+                author: author,
+                question: question,
+                responses: [],
+                priority: priority,
+                timestamp: 'Ahora'
+            };
+
+            discussions.unshift(newDiscussion);
+            saveDiscussions();
+            updateDiscussions();
+            closeNewQuestionModal();
+            setActiveTab('collaboration');
+            showNotification('Pregunta añadida correctamente', 'success');
+        }
+
+        function addResponse(discussionId) {
+            const input = document.getElementById(`response-${discussionId}`);
+            const responseText = input.value.trim();
+
+            if (!responseText) {
+                showNotification('Escribe una respuesta', 'error');
+                return;
+            }
+
+            const discussion = discussions.find(d => d.id === discussionId);
+            if (discussion) {
+                discussion.responses.push({
+                    id: Date.now(),
+                    author: "Usuario Actual", // In real implementation, get from user session
+                    response: responseText,
+                    likes: 0,
+                    timestamp: "Ahora"
+                });
+
+                input.value = '';
+                saveDiscussions();
+                updateDiscussions();
+                showNotification('Respuesta añadida', 'success');
+            }
+        }
+
+        function likeResponse(discussionId, responseId) {
+            const discussion = discussions.find(d => d.id === discussionId);
+            if (discussion) {
+                const response = discussion.responses.find(r => r.id === responseId);
+                if (response) {
+                    response.likes++;
+                    saveDiscussions();
+                    updateDiscussions();
+                }
+            }
+        }
+
+        function focusOnFactor(factorCode) {
+            const questions = {
+                'F5': '¿Qué estrategias específicas proponen para mejorar la educación familiar sobre drogas (F5: 6.56 - puntuación más baja)?',
+                'F1': '¿Cómo podemos ayudar a las familias a manejar mejor las situaciones de riesgo (F1: 9.26)?',
+                'F6': '¿Cómo potenciamos las actividades protectoras que ya funcionan bien (F6: 10.98)?'
+            };
+
+            const question = questions[factorCode] || `¿Qué opinan sobre el factor ${factorCode}?`;
+            
+            document.getElementById('questionText').value = question;
+            document.getElementById('questionPriority').value = factorCode === 'F5' ? 'alta' : 'media';
+            openNewQuestionModal();
+        }
+
+        // Data persistence
+        function saveDiscussions() {
+            localStorage.setItem('fridaDiscussions', JSON.stringify(discussions));
+            // Here you would also sync with Google Sheets if configured
+        }
+
+        function syncData() {
+            // In a real implementation, this would sync with Google Sheets
+            showNotification('Datos sincronizados', 'success');
+            updateStats();
+        }
+
+        // Notifications
+        function showNotification(message, type) {
+            const container = document.getElementById('notifications');
+            const notification = document.createElement('div');
+            notification.className = `notification p-4 rounded-lg shadow-lg mb-2 ${
+                type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 
+                'bg-red-100 text-red-800 border border-red-200'
+            }`;
+            notification.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(notification);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Timeline creation
+        function createTimeline() {
+            const container = document.getElementById('timelineContainer');
+            const timelineItems = [
+                {
+                    phase: 'Semana 1-2: Preparación F5',
+                    description: 'Diseño del programa de educación familiar sobre drogas',
+                    responsible: 'Dr. García, Prof. Martínez',
+                    color: 'red'
+                },
+                {
+                    phase: 'Mes 1: Lanzamiento',
+                    description: 'Inicio talleres parentales y apoyo familias monoparentales',
+                    responsible: 'Equipo completo',
+                    color: 'orange'
+                },
+                {
+                    phase: 'Mes 2-3: Evaluación',
+                    description: 'Primera evaluación de efectividad y ajustes',
+                    responsible: 'Orientación y Equipos',
+                    color: 'blue'
+                },
+                {
+                    phase: 'Mes 4+: Consolidación',
+                    description: 'Mantenimiento y mejora continua',
+                    responsible: 'Todos',
+                    color: 'green'
+                }
+            ];
+
+            container.innerHTML = timelineItems.map(item => `
+                <div class="flex items-center space-x-4">
+                    <div class="w-4 h-4 bg-${item.color}-500 rounded-full flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-900">${item.phase}</h4>
+                        <p class="text-sm text-gray-600">${item.description}</p>
+                        <p class="text-xs text-gray-500">Responsables: ${item.responsible}</p>
+                    </div>
+                    <button onclick="openNewQuestionModal()" class="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200 transition-colors">
+                        Comentar
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Initialize timeline when action plan tab is first opened
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(createTimeline, 1000);
+        });
+    </script>
+</body>
+</html>
